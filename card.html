@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Site creature — plan cards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg: #ffffff; --card: #f3f3f2; --text: #111; --dim: #8a8a8a; --line: #e6e6e4; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Geist", system-ui, sans-serif; }
+      main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 20px; }
+
+      .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding: 12px 16px; border: 1px solid var(--line);
+        border-radius: 12px; font: 12px "Geist Mono", monospace; color: #555; }
+      .controls label { display: flex; align-items: center; gap: 8px; }
+      .controls input[type=range] { width: 110px; accent-color: #111; }
+      .controls select { font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+      .controls input[type=color] { width: 28px; height: 22px; border: 1px solid var(--line); border-radius: 5px; padding: 0; background: none; }
+      .seg button { font: inherit; border: 1px solid var(--line); background: #fff; padding: 3px 9px; cursor: pointer; }
+      .seg button:first-child { border-radius: 6px 0 0 6px; }
+      .seg button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+      .seg button.on { background: #111; color: #fff; border-color: #111; }
+
+      .card { position: relative; background: var(--card); border-radius: 16px; min-height: 236px; overflow: hidden; display: flex; align-items: center; }
+      .card .copy { position: relative; z-index: 1; padding: 34px 34px; max-width: 560px; }
+      .card h3 { margin: 0 0 18px; font-weight: 400; font-size: 21px; letter-spacing: -0.01em; }
+      .card h3 b { font-weight: 600; }
+      .card p { margin: 0 0 22px; color: var(--dim); font-size: 17px; line-height: 1.5; }
+      .card p a { color: var(--text); text-decoration: none; }
+      .card .btn { display: inline-block; background: #fff; border: 1px solid #e2e2e0; border-radius: 10px; padding: 13px 22px; font-size: 18px;
+        color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.05); cursor: pointer; font-family: inherit; }
+      .card canvas { position: absolute; top: 0; right: 0; height: 100%; width: 46%;
+        -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22%); mask-image: linear-gradient(to right, transparent 0, #000 22%); }
+      .card .x { position: absolute; top: 22px; right: 22px; z-index: 2; width: 38px; height: 38px; border-radius: 10px; background: #fff;
+        border: 1px solid #e6e6e4; display: grid; place-items: center; font-size: 18px; color: #333; }
+      .card .meta { position: absolute; right: 22px; bottom: 14px; z-index: 2; font: 11px "Geist Mono", monospace; color: #9a9a98; }
+      .label { font: 11px "Geist Mono", monospace; color: #9a9a98; text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 -8px 4px; }
+      @media (max-width: 700px) { .card canvas { width: 100%; opacity: .5; } .card .copy { padding: 24px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="controls" id="controls"></div>
+
+      <div class="label">Standard — current site</div>
+      <section class="card" id="standard">
+        <div class="copy">
+          <h3><b>Standard plan</b> is active for this site.</h3>
+          <p>With the Standard plan, you have limited access to the features of Nitido Studio. <a href="#">Upgrade to Plus</a> to unlock all the benefits.</p>
+          <button class="btn" id="upgrade">Upgrade to Plus</button>
+        </div>
+        <canvas aria-hidden="true"></canvas>
+        <div class="x">×</div>
+        <div class="meta"></div>
+      </section>
+
+      <div class="label">Plus — room to grow</div>
+      <section class="card" id="plus">
+        <div class="copy">
+          <h3><b>Plus plan</b> is active for this site.</h3>
+          <p>Unlimited pages, sections and every feature of Nitido Studio. Your site has room to grow.</p>
+          <button class="btn">Manage plan</button>
+        </div>
+        <canvas aria-hidden="true"></canvas>
+        <div class="x">×</div>
+        <div class="meta"></div>
+      </section>
+    </main>
+    <script type="module" src="/card.ts"></script>
+  </body>
+</html>

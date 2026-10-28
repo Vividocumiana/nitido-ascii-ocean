@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ascii ocean — configurator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --panel: rgba(10, 12, 16, 0.86);
+        --line: rgba(255, 255, 255, 0.08);
+        --text: #d7dde8;
+        --dim: #7d8696;
+        --accent: #6ee6ff;
+        font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #000; color: var(--text); overflow: hidden; }
+      canvas { display: block; width: 100vw; height: 100vh; font-family: "Geist Mono", ui-monospace, Menlo, monospace; }
+
+      #panel {
+        position: fixed; top: 12px; right: 12px; bottom: 12px; width: 320px;
+        background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        border: 1px solid var(--line); border-radius: 10px;
+        display: flex; flex-direction: column; font-size: 11px; transition: transform .25s ease;
+      }
+      #panel.hidden { transform: translateX(calc(100% + 24px)); }
+      #panel header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+      #panel header b { font-weight: 600; letter-spacing: .04em; }
+      #body { overflow-y: auto; padding: 4px 0 12px; flex: 1; }
+      #body::-webkit-scrollbar { width: 6px; }
+      #body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+      details { border-bottom: 1px solid var(--line); }
+      summary { cursor: pointer; padding: 10px 14px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; list-style: none; user-select: none; }
+      summary::before { content: "▸ "; }
+      details[open] summary::before { content: "▾ "; }
+      details[open] summary { color: var(--text); }
+      .sec { padding: 0 14px 12px; display: grid; gap: 8px; }
+
+      .row { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 8px; }
+      .row.two { grid-template-columns: 92px 1fr; }
+      .row label { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .row output { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+      input[type=range] { width: 100%; accent-color: var(--accent); height: 14px; }
+      input[type=color] { width: 100%; height: 20px; border: 1px solid var(--line); background: none; padding: 0; border-radius: 4px; }
+      input[type=text], select {
+        width: 100%; background: rgba(255,255,255,.04); color: var(--text); border: 1px solid var(--line);
+        border-radius: 4px; padding: 4px 6px; font: inherit;
+      }
+      input[type=checkbox] { accent-color: var(--accent); justify-self: start; }
+
+      button {
+        font: inherit; color: var(--text); background: rgba(255,255,255,.05); border: 1px solid var(--line);
+        border-radius: 5px; padding: 5px 9px; cursor: pointer;
+      }
+      button:hover { border-color: rgba(255,255,255,.25); }
+      button.primary { background: var(--accent); color: #001018; border-color: transparent; font-weight: 600; }
+      .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip.active { border-color: var(--accent); color: var(--accent); }
+
+      .pred { display: grid; grid-template-columns: 1fr 80px 22px; gap: 6px; align-items: center; }
+      .pred button { padding: 2px 0; }
+      .hint { color: var(--dim); line-height: 1.5; }
+
+      #toggle { position: fixed; top: 12px; right: 12px; z-index: 2; display: none; }
+      #toggle.show { display: block; }
+      #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #001018;
+        padding: 6px 12px; border-radius: 6px; font-size: 11px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+      #toast.on { opacity: 1; }
+      @media (max-width: 600px) { #panel { left: 12px; width: auto; top: 40%; } }
+    </style>
+  </head>
+  <body>
+    <canvas aria-hidden="true"></canvas>
+    <button id="toggle">⚙ config</button>
+    <aside id="panel">
+      <header><b>ascii ocean</b><button id="hide" title="Hide panel (H)">hide</button></header>
+      <div id="body"></div>
+    </aside>
+    <div id="toast"></div>
+    <script type="module" src="/demo.ts"></script>
+  </body>
+</html>

@@ -227,6 +227,10 @@ function layoutArea() {
   const wall = Math.min(0.85, (copy.right - r.left + 8) / r.width);
   scene.opts.wall = wall;
   scene.opts.area = { x0: Math.min(0.9, wall + 0.14), y0: 0.18, x1: 0.95, y1: 0.82 };
+  // On a narrow card the chosen size may not fit beside the text: shrink the bodies to the free space.
+  const c = config.plans[plan];
+  const fit = ((1 - wall) * r.width * 0.85 * (1 + 0.16 * (c.count - 1))) / r.height;
+  scene.opts.size = Math.min(c.size, fit);
   leftPx = wall * r.width + 36;
   if (sharkEngine) sharkEngine.world.left = leftPx;
 }
@@ -251,6 +255,7 @@ function applyPreview(restart = false) {
     if (restart) sharkEngine.world.reseed(sharkCfg.predators.list, SHARK_PREY);
   } else {
     Object.assign(scene.opts, sceneOpts(c));
+    layoutArea();
     if (restart) scene.restart();
   }
   document.getElementById("name")!.textContent = `${PLAN_NAMES[plan]} · ${NAMES[c.creature]} ×${c.count}`;

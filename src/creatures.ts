@@ -296,6 +296,21 @@ export const CREATURES: Record<string, CreatureDef> = {
 /** Koi patch colour is shared and tweakable from the page. */
 export const KOI_PATCH = { color: "#DF4125" };
 
+/** How far anything (body, fins, tail, wave) reaches sideways from the swum path, fraction of L. */
+const reachCache = new Map<CreatureDef, number>();
+function reachOf(def: CreatureDef) {
+  let r = reachCache.get(def);
+  if (r !== undefined) return r;
+  const half = (s: number) => (def.profile ? Math.max(def.profile.back(s), def.profile.belly(s)) : def.width(s));
+  let w = 0;
+  for (let s = 0; s <= 1; s += 0.02) w = Math.max(w, half(s));
+  r = w + def.wave.amp;
+  for (const f of def.fins) r = Math.max(r, half(f.s) + f.len * Math.sin(Math.min(Math.PI / 2, f.angle + f.flap)) + def.wave.amp * 0.5);
+  r = Math.max(r, def.tail.span * def.tail.len + def.wave.amp);
+  reachCache.set(def, r);
+  return r;
+}
+
 // ── motion ─────────────────────────────────────────────────────────────
 
 class Swimmer {
@@ -321,6 +336,8 @@ class Swimmer {
   private modeUntil = 0;
   private lastBeat = 0;
   private outside = 0;
+  /** Side view: which way the current long pass runs (+1 right, −1 left). */
+  private pass: 1 | -1 = 1;
   /** Head trail, newest last. */
   private trail: number[] = [];
 
@@ -372,10 +389,20 @@ class Swimmer {
   }
 
   /** Own wandering target: a smooth noise path around the area. */
-  wander(area: { x0: number; y0: number; x1: number; y1: number }, speedK: number) {
+  wander(area: { x0: number; y0: number; x1: number; y1: number }, speedK: number, def?: CreatureDef, L = 0) {
     const t = this.t;
     const cx = (area.x0 + area.x1) / 2;
     const cy = (area.y0 + area.y1) / 2;
+    if (def?.view === "side") {
+      // In profile: long, nearly level passes from one end to the other, gently rising and
+      // falling, and a turn only at the ends. Wandering about would mean looping all the time.
+      if (this.pass > 0 && this.x > area.x1 - L * 0.5) this.pass = -1;
+      else if (this.pass < 0 && this.x < area.x0 + L * 0.5) this.pass = 1;
+      return {
+        x: this.pass > 0 ? area.x1 + L : area.x0 - L,
+        y: cy + ((area.y1 - area.y0) / 2) * 0.7 * noise1(t * 0.09 * speedK, this.seed + 11),
+      };
+    }
     const f = 0.045 * speedK;
     return {
       x: cx + ((area.x1 - area.x0) / 2) * (0.75 * noise1(t * f, this.seed) + 0.25 * noise1(t * f * 2.7, this.seed + 3)),
@@ -388,7 +415,7 @@ class Swimmer {
     const t = this.t;
     const cx = (area.x0 + area.x1) / 2;
     const cy = (area.y0 + area.y1) / 2;
-    const tgt = target ?? this.wander(area, speedK);
+    const tgt = target ?? this.wander(area, speedK, def, L);
     const tx = tgt.x;
     const ty = tgt.y;
     // How far the head has strayed outside its area (0 inside → 1 well out).
@@ -510,6 +537,12 @@ export interface CreatureOptions {
   count: number;
   /** No part of a body goes left of this (fraction of width), e.g. to keep clear of text. */
   wall?: number;
+  /**
+   * Keep every body whole inside the canvas, right of `wall`, `pad` px from the edges:
+   * nothing is ever cut by the frame. Bodies are capped in size so they can turn round
+   * inside that box, and they start turning before they reach its sides.
+   */
+  contain?: { pad: number };
   /** Don't paint the background (layer several scenes); `background` is still used for blending. */
   transparent?: boolean;
   /**
@@ -587,10 +620,48 @@ export class CreatureScene {
   /** Body length of the swimmer being processed. Groups are a little smaller each. */
   get L() {
     const n = this.swimmers.length;
-    return this.H * this.opts.size * this.swimmer.scale / (1 + 0.16 * (n - 1));
+    return this.baseL() * this.swimmer.scale / (1 + 0.16 * (n - 1));
+  }
+
+  /** Body length before group shrink; in a box, no bigger than lets it turn round inside. */
+  private baseL() {
+    const L = this.H * this.opts.size;
+    const b = this.box();
+    if (!b) return L;
+    const def = this.def;
+    const fit = Math.min(b.x1 - b.x0, b.y1 - b.y0) / (2 * def.turnRadius + 2 * reachOf(def) + 0.5);
+    return Math.max(8, Math.min(L, fit));
+  }
+
+  /**
+   * Cell width actually drawn. In a box, a body shrunk to fit keeps its detail: the grid
+   * gets finer so the body stays at least ~16 cells long.
+   */
+  private cellW() {
+    const c = this.opts.cell;
+    if (!this.opts.contain) return c;
+    const n = Math.max(1, Math.round(this.opts.count));
+    return clamp(Math.round(this.baseL() / (1 + 0.16 * (n - 1)) / 16), Math.min(4, c), c);
+  }
+
+  /** The box every body stays inside (px), when contained. */
+  private box() {
+    const c = this.opts.contain;
+    if (!c) return null;
+    // A cell the outline only grazes is still painted whole: keep a cell more in hand.
+    const p = c.pad + this.opts.cell * 1.45;
+    return { x0: (this.opts.wall ?? 0) * this.W + p, y0: p, x1: this.W - p, y1: this.H - p };
   }
 
   private area() {
+    const b = this.box();
+    if (b) {
+      // Where the head may go: the box less what sticks out sideways from the path.
+      const m = reachOf(this.def) * this.baseL() * 1.1;
+      const x0 = b.x0 + m, x1 = Math.max(x0 + 1, b.x1 - m);
+      const y0 = b.y0 + m, y1 = Math.max(y0 + 1, b.y1 - m);
+      return { x0, y0, x1, y1 };
+    }
     const a = this.opts.area;
     return { x0: a.x0 * this.W, y0: a.y0 * this.H, x1: a.x1 * this.W, y1: a.y1 * this.H };
   }
@@ -659,7 +730,7 @@ export class CreatureScene {
       this.swimmer = sw;
       const L = this.L;
       // On a ring, aim a little ahead along it so the group keeps travelling round.
-      let target = ring ? ringAt(ringTh + Math.sign(ring.speed || 1) * 0.35) : sw.wander(a, this.opts.speed);
+      let target = ring ? ringAt(ringTh + Math.sign(ring.speed || 1) * 0.35) : sw.wander(a, this.opts.speed, def, L);
       if (n > 1) {
         if (def.social === "orbit") {
           // Chase a point a little further round a shared circle: they wheel round each other.
@@ -699,18 +770,29 @@ export class CreatureScene {
           }
         }
       }
-      // Targets always sit inside the area.
-      target.x = clamp(target.x, a.x0, a.x1);
-      target.y = clamp(target.y, a.y0, a.y1);
+      // Targets always sit inside the area (in a box, well clear of its sides).
+      const inset = this.opts.contain ? Math.min(def.turnRadius * L * 0.6, (a.x1 - a.x0) / 2, (a.y1 - a.y0) / 2) : 0;
+      target.x = clamp(target.x, a.x0 + inset, a.x1 - inset);
+      target.y = clamp(target.y, a.y0 + inset, a.y1 - inset);
       targets.push(target);
     }
     for (let i = 0; i < n; i++) {
       const sw = sws[i];
       this.swimmer = sw;
       const L = this.L;
-      // Keep the whole body, not just the head, right of the wall.
       let push = 0;
-      if (this.opts.wall !== undefined) {
+      if (this.opts.contain) {
+        // Look ahead: the body follows the head's path, so keeping the head inside the area
+        // keeps the whole body in the box. Start turning about a turning circle early,
+        // sooner the more squarely the head is aimed at a side.
+        const R = def.turnRadius * L;
+        const look = R * 1.5 + sw.speed * 0.25;
+        const hx = Math.cos(sw.heading);
+        const hy = Math.sin(sw.heading);
+        const near = (d: number, toward: number) => smoothstep(look, 0, d) * (0.3 + 0.7 * Math.max(0, toward));
+        push = Math.max(near(sw.x - a.x0, -hx), near(a.x1 - sw.x, hx), near(sw.y - a.y0, -hy), near(a.y1 - sw.y, hy));
+      } else if (this.opts.wall !== undefined) {
+        // Keep the whole body, not just the head, right of the wall.
         const wall = this.opts.wall * this.W;
         sw.spine(this.probe, L, def.stiffness);
         let minX = Infinity;
@@ -978,8 +1060,8 @@ export class CreatureScene {
 
   private render() {
     const { ctx, W, H, dpr, opts } = this;
-    const cw = opts.cell;
-    const ch = Math.round(opts.cell * 1.45);
+    const cw = this.cellW();
+    const ch = Math.round(cw * 1.45);
     const cols = Math.ceil(W / cw);
     const rows = Math.ceil(H / ch);
     const bg = hexRgb(opts.background);

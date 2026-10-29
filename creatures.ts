@@ -206,7 +206,7 @@ const sceneOpts = (c: PlanConfig): CreatureOptions => ({
   // The shark has its own engine; keep this scene on something valid meanwhile.
   creature: c.creature in CREATURES ? c.creature : "goldfish", count: c.count, size: c.size, cell: c.cell, background: c.background,
   opacity: c.opacity, speed: paused ? 0 : c.speed, grid: config.grid, debug: false,
-  area: { x0: 0.68, y0: 0.18, x1: 0.95, y1: 0.82 }, wall: 0.56,
+  area: { x0: 0.68, y0: 0.18, x1: 0.95, y1: 0.82 }, wall: 0.56, contain: { pad: 10 },
 });
 const creatureCanvas = card.querySelector("canvas")!;
 const scene = new CreatureScene(creatureCanvas, sceneOpts(config.plans[plan]), 3);
@@ -225,8 +225,9 @@ function layoutArea() {
   const copy = card.querySelector<HTMLElement>(".copy")!.getBoundingClientRect();
   if (r.width < 1) return;
   const wall = Math.min(0.85, (copy.right - r.left + 8) / r.width);
+  // The scene keeps every body whole between this wall and the card's edges, and shrinks
+  // them when the chosen size wouldn't fit beside the text.
   scene.opts.wall = wall;
-  scene.opts.area = { x0: Math.min(0.9, wall + 0.14), y0: 0.18, x1: 0.95, y1: 0.82 };
   leftPx = wall * r.width + 36;
   if (sharkEngine) sharkEngine.world.left = leftPx;
 }
@@ -251,6 +252,7 @@ function applyPreview(restart = false) {
     if (restart) sharkEngine.world.reseed(sharkCfg.predators.list, SHARK_PREY);
   } else {
     Object.assign(scene.opts, sceneOpts(c));
+    layoutArea();
     if (restart) scene.restart();
   }
   document.getElementById("name")!.textContent = `${PLAN_NAMES[plan]} · ${NAMES[c.creature]} ×${c.count}`;
@@ -510,3 +512,4 @@ showPlan(true);
 buildLooks();
 
 (window as unknown as Record<string, unknown>).__ocean = oceanScenes;
+(window as unknown as Record<string, unknown>).__card = scene;
